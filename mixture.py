@@ -9,10 +9,14 @@ import itertools
 # Third party imports
 import numpy as np
 import matplotlib.pyplot as plt
-
+from matplotlib.ticker import MaxNLocator
 
 from sklearn import mixture
 from sklearn.cross_validation import StratifiedKFold
+
+# XDGMM
+import astroML.density_estimation
+from astroML.plotting.tools import draw_ellipse
 
 # Module imports
 import dataio
@@ -124,6 +128,86 @@ def classify_all():
 
 	return results
 
+
+def xdgmm():
+
+	all_data = oc_data
+
+	# Get the data in a format for XDGMM
+
+	elements = ("[Fe/H]", "[Mg/Fe]")
+
+	data = np.zeros(map(len, (all_data, elements)))
+	uncertainties = np.zeros(map(len, (all_data, elements, elements)))
+
+	# Fill in the data
+	for i, element in enumerate(elements):
+		data[:, i] = all_data[element]
+
+	# Fill in the uncertainties
+	diag = np.arange(len(elements))
+	for i, row in enumerate(all_data):
+		uncertainties[i][diag, diag] = \
+			[row["e_{0}".format(element)] for element in elements]
+
+	# Where the data are missing (e.g. non-finite), set the value
+	# as zero and the uncertainty as very large.
+	data[~np.isfinite(data)] = 0
+	uncertainties[~np.isfinite(uncertainties)] = 1000
+
+	classifier = astroML.density_estimation.XDGMM(n_components=20, n_iter=500)
+	classifier.fit(data, uncertainties)
+
+	# Sample the classifier
+	samples = classifier.sample(len(all_data))
+
+	# Plot some results
+	fig = plt.figure(figsize=(4.025, 7.70))
+	fig.subplots_adjust(left=0.20, bottom=0.07, right=0.95, top=0.95,
+		wspace=0.20, hspace=0.05)
+
+	# Plot observed data
+	ax_observed = fig.add_subplot(311)
+	ax_observed.errorbar(all_data[elements[0]], all_data[elements[1]],
+		fmt=None, ecolor="#666666", xerr=all_data["e_" + elements[0]],
+		yerr=all_data["e_" + elements[1]], zorder=-1)
+	ax_observed.scatter(all_data[elements[0]], all_data[elements[1]],
+		facecolor="k")
+
+	ax_observed.text(0.05, 0.95, "Observed Data", ha="left", va="top",
+		transform=ax_observed.transAxes)
+
+	ax_observed.set_xlim(-0.5, 0.5)
+	ax_observed.set_ylim(-0.5, 0.5)
+	ax_observed.set_xticklabels([""] * len(ax_observed.get_xticks()))
+	ax_observed.yaxis.set_major_locator(MaxNLocator(5))
+
+	ax_observed.set_ylabel(elements[1])
+
+	# Plot sampled data
+	ax_sampled = fig.add_subplot(312, sharex=ax_observed, sharey=ax_observed)
+	ax_sampled.scatter(samples[:, 0], samples[:, 1],
+		facecolor="k")
+	ax_sampled.text(0.05, 0.95, "Extreme Deconvolution\nresampling",
+		ha="left", va="top", transform=ax_sampled.transAxes)
+
+	ax_sampled.set_xticklabels([""] * len(ax_sampled.get_xticks()))
+	ax_sampled.set_ylabel(elements[1])
+
+	# Plot cluster data
+	ax_clusters = fig.add_subplot(313, sharey=ax_observed)
+	ax_clusters.text(0.05, 0.95, "Clusters", ha="left", va="top",
+		transform=ax_clusters.transAxes)
+
+	for i in range(classifier.n_components):
+		draw_ellipse(classifier.mu[i], classifier.V[i], scales=[2],
+			ax=ax_clusters, ec='k', fc='gray', alpha=0.2)
+
+	ax_clusters.set_xlim(ax_sampled.get_xlim())
+	ax_clusters.set_xlabel(elements[0])
+	ax_clusters.set_ylabel(elements[1])
+
+	raise a
 
 
 if __name__ == "__main__":
