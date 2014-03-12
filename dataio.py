@@ -91,7 +91,7 @@ def get_mitschang_data():
 	formats = []
 	for column_name in column_names:
 		if column_name.endswith("/Fe]") \
-		or column_name == "[Fe/H]":
+		or column_name in ("[Fe/H]", "e_[Fe/H]"):
 			formats.append("f8")
 
 		elif column_name in ("cid", "sid"):
