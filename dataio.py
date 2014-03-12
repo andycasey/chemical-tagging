@@ -13,6 +13,8 @@ def get_mitschang_data():
 	stars = {}
 	all_elements = set()
 
+	e_repr = lambda element: "[{0}/Fe]".format(element) if element != "Fe" else "[Fe/H]"
+
 	for line in contents[skip_lines:]:
 		cluster = line[:9]
 		cid = line[9:12]
@@ -49,8 +51,8 @@ def get_mitschang_data():
 			"cid": cid,
 			"star_name": star_name,
 			"src": src,
-			"[{0}/Fe]".format(element): abundance,
-			"e_[{0}/Fe]".format(element): uncertainty 
+			e_repr(element): abundance,
+			"e_{0}".format(e_repr(element)): uncertainty 
 		}
 
 		# Assert that we don't have multiple abundance measurements
@@ -63,10 +65,9 @@ def get_mitschang_data():
 	all_elements = list(all_elements)
 	empty_measurements = {}
 	for element in all_elements:
-		element_repr = "[Fe/H]" if element == "Fe" else "[{0}/Fe]".format(element)
-
-		empty_measurements[element_repr] = np.nan
-		empty_measurements["e_{0}".format(element_repr)] = np.nan
+		
+		empty_measurements[e_repr(element)] = np.nan
+		empty_measurements["e_{0}".format(e_repr(element))] = np.nan
 	
 	# Fill in the array with nans when measurements were not available
 	for sid in stars.keys():
@@ -89,7 +90,8 @@ def get_mitschang_data():
 
 	formats = []
 	for column_name in column_names:
-		if column_name.endswith("/Fe]"):
+		if column_name.endswith("/Fe]") \
+		or column_name == "[Fe/H]":
 			formats.append("f8")
 
 		elif column_name in ("cid", "sid"):
